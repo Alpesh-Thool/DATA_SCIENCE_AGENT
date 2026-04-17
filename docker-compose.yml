@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  # ── FastAPI Backend ──────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - upload_data:/app/uploads
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dsagent
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # ── Redis ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ── Jupyter Kernel Gateway (Phase 3) ─────────────────────
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_GATEWAY_PORT=8888
+    command: jupyter kernelgateway --KernelGatewayApp.api='kernel_gateway.jupyter_websocket' --KernelGatewayApp.allow_origin='*'
+
+volumes:
+  pg_data:
+  redis_data:
+  upload_data:
