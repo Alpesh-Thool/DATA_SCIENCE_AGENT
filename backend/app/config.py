@@ -2,7 +2,7 @@
 Application configuration — loads from environment variables with sensible defaults.
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
 
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # ── LLM (Gemini) ─────────────────────────────────────
     GOOGLE_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash-lite-preview-02-05" # Default to Flash Lite as requested
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite" # Sensible stable default
 
     # ── Jupyter Kernel Gateway ───────────────────────────
     KERNEL_GATEWAY_URL: str = "http://localhost:8888"
@@ -42,10 +42,12 @@ class Settings(BaseSettings):
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "ds-ai-agent"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 settings = Settings()

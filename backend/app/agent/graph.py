@@ -13,6 +13,35 @@ from app.agent.nodes.summarizer import summarizer_node
 
 # ── Routing Logic ────────────────────────────────────────────────────────────
 
+def analyst_router(state: AgentState) -> str:
+    """
+    Decides the next node after the Analyst.
+    If the Analyst produced no code (skipped step or all steps done),
+    check whether we should move to Summarizer or try the next step.
+    If code was produced, proceed to Executor.
+    """
+    plan = state.get("analysis_plan", [])
+    step_idx = state.get("current_step_index", 0)
+    snippets = state.get("code_snippets", [])
+
+    # If step_index is past the end of the plan, we're done → Summarizer
+    if step_idx >= len(plan):
+        return "Summarizer"
+
+    # If the Analyst just set an error (failed to generate code) but didn't
+    # produce a snippet, skip Executor/Evaluator and loop back to Analyst
+    # (the iteration_count guard in the Analyst will eventually break the loop)
+    if state.get("error") and (not snippets or snippets[-1].get("status") != "pending_execution"):
+        return "Analyst"
+
+    # If there are no snippets at all (shouldn't normally happen), go to Summarizer
+    if not snippets:
+        return "Summarizer"
+
+    # Normal case: code was generated, send it to the Executor
+    return "Executor"
+
+
 def evaluator_router(state: AgentState) -> str:
     """
     Decides the next node after evaluation.
@@ -46,14 +75,22 @@ def build_graph() -> StateGraph:
     workflow.add_node("Evaluator", evaluator_node)
     workflow.add_node("Summarizer", summarizer_node)
     
-    # 2. Add Edges (linear flow with one conditional loop)
+    # 2. Add Edges
     workflow.set_entry_point("Planner")
     
     # Planner -> Analyst
     workflow.add_edge("Planner", "Analyst")
     
-    # Analyst -> Executor
-    workflow.add_edge("Analyst", "Executor")
+    # Analyst -> [Conditional: Executor if code produced, Summarizer if done, self-loop if error]
+    workflow.add_conditional_edges(
+        "Analyst",
+        analyst_router,
+        {
+            "Executor": "Executor",
+            "Summarizer": "Summarizer",
+            "Analyst": "Analyst",
+        }
+    )
     
     # Executor -> Evaluator
     workflow.add_edge("Executor", "Evaluator")

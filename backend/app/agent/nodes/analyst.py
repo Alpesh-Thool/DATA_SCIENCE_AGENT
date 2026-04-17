@@ -24,8 +24,9 @@ async def analyst_node(state: AgentState) -> dict:
     plan = state.get("analysis_plan", [])
     step_idx = state.get("current_step_index", 0)
     
-    # Guard check
+    # Guard check — all steps done
     if step_idx >= len(plan):
+        print(f"✅ [Analyst] All {len(plan)} steps completed.")
         return {}
 
     # Prevent infinite retry loops
@@ -84,6 +85,7 @@ async def analyst_node(state: AgentState) -> dict:
         }
     except Exception as e:
         print(f"🚨 [Analyst] Error generating code: {str(e)}")
+        # Increment iteration_count so we eventually hit max_iterations and skip this step
         return {
             "error": f"Failed to generate code for step {step_idx + 1}: {str(e)}",
             "iteration_count": iteration_count + 1,

@@ -60,7 +60,8 @@ class AnalysisService:
             "iteration_count": 0,
             "max_iterations": 3,
             "final_summary": "",
-            "error": None
+            "error": None,
+            "last_execution_result": {}
         }
 
         # 3. Execute Graph and Stream Updates
@@ -133,7 +134,8 @@ class AnalysisService:
             "schema_summary": schema_summary, "user_query": user_query,
             "analysis_plan": [], "current_step_index": 0, "code_snippets": [],
             "visualizations": [], "key_findings": [], "iteration_count": 0,
-            "max_iterations": 3, "final_summary": "", "error": None
+            "max_iterations": 3, "final_summary": "", "error": None,
+            "last_execution_result": {}
         }
 
         await ws_manager.send_event(session_id, "analysis:progress", {
@@ -169,7 +171,16 @@ class AnalysisService:
             task.status = AnalysisStatus.COMPLETED
             task.summary = final_state.get("final_summary")
             task.key_findings = final_state.get("key_findings", [])
-            task.visualizations = final_state.get("visualizations", [])
+            
+            from app.models.schemas import VisualizationSpec
+            viz_list = []
+            for v in final_state.get("visualizations", []):
+                viz_list.append(VisualizationSpec(
+                    title=v.get("title", ""),
+                    chart_type=v.get("chart_type", "plotly"),
+                    plotly_json=v.get("plotly_json", {})
+                ))
+            task.visualizations = viz_list
             
             # Map code snippets to the schema
             task_snippets = []

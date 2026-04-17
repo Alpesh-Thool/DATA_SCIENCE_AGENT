@@ -49,7 +49,7 @@ const useSessionStore = create((set, get) => ({
       analysisStatus: 'pending',
       analysisProgress: 0,
       analysisStep: 'Starting analysis...',
-      analysisResult: null,
+      // Don't clear analysisResult here — keep showing previous results until new ones arrive
     }),
 
   setAnalysisProgress: ({ status, progress_percent, current_step }) =>

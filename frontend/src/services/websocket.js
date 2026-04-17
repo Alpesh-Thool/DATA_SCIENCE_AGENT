@@ -10,8 +10,9 @@ class WebSocketService {
     this.sessionId = null;
     this.listeners = new Map();
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.maxReconnectAttempts = 10;
     this.reconnectDelay = 2000;
+    this._pingInterval = null;
   }
 
   /** Connect to the WebSocket server. */
@@ -25,6 +26,8 @@ class WebSocketService {
       console.log('🔌 WebSocket connected');
       this.reconnectAttempts = 0;
       this._emit('connected', {});
+      // Start keepalive pings every 15 seconds
+      this._startPing();
     };
 
     this.ws.onmessage = (event) => {
@@ -38,6 +41,7 @@ class WebSocketService {
 
     this.ws.onclose = () => {
       console.log('🔌 WebSocket disconnected');
+      this._stopPing();
       this._emit('disconnected', {});
       this._tryReconnect();
     };
@@ -49,9 +53,25 @@ class WebSocketService {
 
   /** Disconnect from the server. */
   disconnect() {
+    this._stopPing();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+  }
+
+  /** Start keepalive pings to prevent timeout during long operations. */
+  _startPing() {
+    this._stopPing();
+    this._pingInterval = setInterval(() => {
+      this.send('ping', {});
+    }, 15000); // Every 15 seconds
+  }
+
+  _stopPing() {
+    if (this._pingInterval) {
+      clearInterval(this._pingInterval);
+      this._pingInterval = null;
     }
   }
 

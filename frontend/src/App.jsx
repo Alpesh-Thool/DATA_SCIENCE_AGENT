@@ -2,23 +2,41 @@
  * App — Main application layout with three-panel design.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import FileUpload from './components/FileUpload';
 import DataPreview from './components/DataPreview';
 import ChatPanel from './components/ChatPanel';
 import NotebookView from './components/NotebookView';
 import ChartPanel from './components/ChartPanel';
+import ErrorBoundary from './components/ErrorBoundary';
 import useSessionStore from './stores/sessionStore';
+import useNotebookStore from './stores/notebookStore';
 import { wsService } from './services/websocket';
+import { getAnalysisResult } from './services/api';
 import { Sparkles } from 'lucide-react';
 
 function App() {
   const fileId = useSessionStore((s) => s.fileId);
   const analysisResult = useSessionStore((s) => s.analysisResult);
+  const analysisTaskId = useSessionStore((s) => s.analysisTaskId);
+  const analysisStatus = useSessionStore((s) => s.analysisStatus);
 
   const setSessionId = useSessionStore((s) => s.setSessionId);
   const setAnalysisProgress = useSessionStore((s) => s.setAnalysisProgress);
   const setAnalysisResult = useSessionStore((s) => s.setAnalysisResult);
+  const addCells = useNotebookStore((s) => s.addCells);
+  const clearCells = useNotebookStore((s) => s.clearCells);
+
+  const pollRef = useRef(null);
+
+  // Helper to process a received result
+  const handleResult = (data) => {
+    setAnalysisResult(data);
+    if (data.code_snippets && data.code_snippets.length > 0) {
+      clearCells();
+      addCells(data.code_snippets);
+    }
+  };
 
   // Connect WebSocket on mount
   useEffect(() => {
@@ -32,7 +50,7 @@ function App() {
     });
 
     const unsubResult = wsService.on('analysis:result', (data) => {
-      setAnalysisResult(data);
+      handleResult(data);
     });
 
     return () => {
@@ -40,7 +58,38 @@ function App() {
       unsubResult();
       wsService.disconnect();
     };
-  }, [setSessionId, setAnalysisProgress, setAnalysisResult]);
+  }, [setSessionId, setAnalysisProgress, setAnalysisResult, addCells, clearCells]);
+
+  // Polling fallback: if analysis is running, periodically check the HTTP endpoint
+  // in case the WebSocket result event was missed during a reconnection
+  useEffect(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    if (analysisTaskId && (analysisStatus === 'running' || analysisStatus === 'pending')) {
+      pollRef.current = setInterval(async () => {
+        try {
+          const result = await getAnalysisResult(analysisTaskId);
+          if (result && result.status === 'completed') {
+            handleResult(result);
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        } catch {
+          // Task not done yet or HTTP error — keep polling
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [analysisTaskId, analysisStatus]);
 
   return (
     <div className="app" id="app-root">
@@ -92,20 +141,28 @@ function App() {
           <div className="analysis-view" id="analysis-view">
             {/* Left panel — Chat + Summary */}
             <div className="panel panel-left">
-              <ChatPanel />
+              <ErrorBoundary fallbackMessage="Chat panel encountered an error.">
+                <ChatPanel />
+              </ErrorBoundary>
             </div>
 
             {/* Center panel — Data + Notebook */}
             <div className="panel panel-center">
-              <DataPreview />
-              <NotebookView />
+              <ErrorBoundary fallbackMessage="Data preview encountered an error.">
+                <DataPreview />
+              </ErrorBoundary>
+              <ErrorBoundary fallbackMessage="Notebook encountered an error.">
+                <NotebookView />
+              </ErrorBoundary>
             </div>
 
             {/* Right panel — Charts */}
             <div className="panel panel-right">
-              <ChartPanel
-                visualizations={analysisResult?.visualizations || []}
-              />
+              <ErrorBoundary fallbackMessage="Chart rendering encountered an error.">
+                <ChartPanel
+                  visualizations={analysisResult?.visualizations || []}
+                />
+              </ErrorBoundary>
             </div>
           </div>
         )}

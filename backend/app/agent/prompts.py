@@ -29,11 +29,13 @@ Dataset Information:
 
 Your task is to write EXACTLY one executable block of Python code to accomplish this step.
 The code will be executed in a sandboxed Jupyter kernel.
-- The dataframe is already loaded in the environment as the variable `df`.
-- You MUST import pandas as pd and plotly.express as px if needed.
+- The dataframe is already loaded in the environment as the variable `df`. Do NOT load it from disk using `pd.read_csv()`.
+- You MUST import necessary libraries (e.g., pandas as pd, plotly.express as px).
 - Write robust code. Handle potential NaN values or type mismatches.
-- If the step asks for a visualization, use `plotly.express` and store the figure in a variable named `fig`. The execution environment will know how to extract `fig` automatically.
-- Do NOT include markdown formatting or explanations. Output pure python code ONLY.
+- ALWAYS end your script with a `print()` statement displaying the results of your calculation (e.g., `print(df.head())`, `print(grouped_df)`), so the system can observe the output. Silent execution is treated as a failure.
+- If the step asks for a visualization, use `plotly.express`. Assign the resulting figure to a variable (e.g. `fig = px.bar(...)`). The execution environment will know how to extract the plotly Figure automatically. Do NOT use `fig.show()`.
+
+Your response MUST ONLY contain the Python code. No markdown formatting, no explanations. Output pure python code ONLY.
 """
 
 EVALUATOR_PROMPT = """You are a Quality Assurance Evaluator for an AI Data Analysis Agent.

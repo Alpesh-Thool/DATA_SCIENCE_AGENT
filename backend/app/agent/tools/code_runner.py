@@ -57,9 +57,22 @@ def run_python_code(file_id: str, code: str) -> dict:
     error_msg = None
     exec_locals = {}
 
+    import ast
+
     # 4. Execute
     try:
-        exec(code, exec_globals, exec_locals)
+        tree = ast.parse(code)
+        if tree.body and isinstance(tree.body[-1], ast.Expr):
+            last_expr = tree.body.pop()
+            code_to_exec = compile(tree, filename='<ast>', mode='exec')
+            code_to_eval = compile(ast.Expression(last_expr.value), filename='<ast>', mode='eval')
+            
+            exec(code_to_exec, exec_globals, exec_locals)
+            res = eval(code_to_eval, exec_globals, exec_locals)
+            if res is not None:
+                print(res)
+        else:
+            exec(code, exec_globals, exec_locals)
     except Exception as e:
         success = False
         error_msg = traceback.format_exc()
@@ -75,21 +88,22 @@ def run_python_code(file_id: str, code: str) -> dict:
 
     # 6. Extract visualizations
     visualizations = []
+    print(f"🧐 [CodeRunner] Exec completed. Locals keys: {list(exec_locals.keys())}")
     
-    # Check if a variable named 'fig' was created and is a plotly figure
-    if "fig" in exec_locals:
-        fig = exec_locals["fig"]
-        # Basic duck-typing check for plotly figure
-        if hasattr(fig, "to_json"):
+    # Find any plotly figure in the local variables
+    for var_name, var_val in exec_locals.items():
+        if hasattr(var_val, "to_json") and "Figure" in type(var_val).__name__:
             try:
-                fig_json = json.loads(fig.to_json())
+                fig_json = json.loads(var_val.to_json())
                 visualizations.append({
-                    "title": "Visualization", # Will be updated by evaluator if needed
+                    "title": "Visualization",
                     "chart_type": "plotly",
                     "plotly_json": fig_json
                 })
+                print(f"📈 [CodeRunner] Successfully extracted figure from variable: {var_name}")
+                break # Only grab the first one to avoid duplicates if they assigned it multiple times
             except Exception as fig_err:
-                stderr_str += f"\nError converting figure to JSON: {str(fig_err)}"
+                stderr_str += f"\nError converting figure '{var_name}' to JSON: {str(fig_err)}"
 
     return {
         "success": success,

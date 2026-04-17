@@ -80,6 +80,7 @@ async def evaluator_node(state: AgentState) -> dict:
     if not eval_res.is_successful and eval_res.retry_needed and current_iter < max_iters:
         print(f"🔁 [Evaluator] Code failed. Requesting retry. Feedback: {eval_res.error_feedback}")
         updates["error"] = eval_res.error_feedback
+        updates["iteration_count"] = current_iter + 1
         # We don't increment step_index, so it routes back to Analyst for the SAME step
     else:
         # Success or ran out of retries. Move to next step.

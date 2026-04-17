@@ -40,6 +40,9 @@ class AgentState(TypedDict):
     # The final plain-language response provided by the Summarizer
     final_summary: str
     
+    # Transient: execution result from the Executor for the Evaluator to inspect
+    last_execution_result: dict[str, Any]
+
     # Global flag to track failures
     error: Optional[str]
 

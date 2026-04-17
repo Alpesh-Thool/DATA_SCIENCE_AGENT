@@ -46,8 +46,7 @@ async def executor_node(state: AgentState) -> dict:
            v["title"] = latest_snippet.get("title", "Chart")
 
     updates = {
-        "last_execution_result": result, # Transient
-        "iteration_count": state.get("iteration_count", 0) + 1
+        "last_execution_result": result, # Transient — consumed by the Evaluator
     }
     
     if visualizations:
