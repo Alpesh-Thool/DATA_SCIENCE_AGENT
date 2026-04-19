@@ -2,7 +2,7 @@
  * ChartPanel — renders Plotly charts from visualization specs.
  */
 
-import Plot from 'react-plotly.js';
+import { useEffect, useRef } from 'react';
 import { BarChart3 } from 'lucide-react';
 
 export default function ChartPanel({ visualizations = [] }) {
@@ -26,17 +26,51 @@ export default function ChartPanel({ visualizations = [] }) {
       </h3>
       <div className="charts-grid">
         {visualizations.map((viz, idx) => (
-          <ChartCard key={idx} viz={viz} />
+          <PlotlyCard key={idx} viz={viz} />
         ))}
       </div>
     </div>
   );
 }
 
-function ChartCard({ viz }) {
+/**
+ * Renders a single Plotly chart using the raw Plotly.js API (no react-plotly.js).
+ * This avoids all ESM/CJS interop issues with react-plotly.js.
+ */
+function PlotlyCard({ viz }) {
+  const chartRef = useRef(null);
   const plotlyJson = viz?.plotly_json || {};
   const data = plotlyJson.data || [];
   const layout = plotlyJson.layout || {};
+
+  useEffect(() => {
+    if (!chartRef.current || !data || data.length === 0) return;
+
+    let Plotly;
+    import('plotly.js-dist-min').then((mod) => {
+      Plotly = mod.default || mod;
+      Plotly.newPlot(chartRef.current, data, {
+        ...layout,
+        autosize: true,
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'rgba(255,255,255,0.03)',
+        font: { color: '#c9d1d9', family: 'Inter, sans-serif' },
+        margin: { t: 30, r: 20, b: 40, l: 50 },
+      }, {
+        responsive: true,
+        displayModeBar: true,
+        displaylogo: false,
+      });
+    }).catch((err) => {
+      console.error('Failed to load Plotly:', err);
+    });
+
+    return () => {
+      if (chartRef.current && Plotly) {
+        Plotly.purge(chartRef.current);
+      }
+    };
+  }, [data, layout]);
 
   if (!data || data.length === 0) {
     return (
@@ -52,24 +86,7 @@ function ChartCard({ viz }) {
   return (
     <div className="chart-card">
       <h4 className="chart-title">{viz?.title || 'Chart'}</h4>
-      <Plot
-        data={data}
-        layout={{
-          ...layout,
-          autosize: true,
-          paper_bgcolor: 'transparent',
-          plot_bgcolor: 'rgba(255,255,255,0.03)',
-          font: { color: '#c9d1d9', family: 'Inter, sans-serif' },
-          margin: { t: 30, r: 20, b: 40, l: 50 },
-        }}
-        config={{
-          responsive: true,
-          displayModeBar: true,
-          displaylogo: false,
-        }}
-        useResizeHandler
-        className="plotly-chart"
-      />
+      <div ref={chartRef} className="plotly-chart" style={{ width: '100%', minHeight: '300px' }} />
     </div>
   );
 }

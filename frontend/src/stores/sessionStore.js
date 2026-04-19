@@ -60,11 +60,21 @@ const useSessionStore = create((set, get) => ({
     }),
 
   setAnalysisResult: (result) =>
-    set({
+    set((state) => ({
       analysisResult: result,
       analysisStatus: 'completed',
       analysisProgress: 100,
-    }),
+      // Add the AI summary as a chat message so it appears in the conversation
+      chatMessages: result?.summary
+        ? [
+            ...state.chatMessages,
+            {
+              role: 'assistant',
+              content: result.summary,
+            },
+          ]
+        : state.chatMessages,
+    })),
 
   // ── Chat State ──────────────────────────────────────────
   chatMessages: [],

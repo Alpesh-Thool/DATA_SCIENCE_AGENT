@@ -115,26 +115,6 @@ export default function ChatPanel() {
           </div>
         ))}
 
-        {/* Analysis summary */}
-        {analysisResult?.summary && (
-          <div className="chat-message assistant">
-            <div className="message-avatar">
-              <Bot size={16} />
-            </div>
-            <div className="message-content analysis-summary">
-              <h4>📊 Analysis Summary</h4>
-              <p>{analysisResult.summary}</p>
-              {analysisResult.key_findings?.length > 0 && (
-                <ul>
-                  {analysisResult.key_findings.map((f, i) => (
-                    <li key={i}>{f}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Analysis progress */}
         {analysisStatus === 'running' && (
           <div className="analysis-progress">

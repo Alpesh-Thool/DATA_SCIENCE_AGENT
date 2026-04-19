@@ -31,9 +31,10 @@ function App() {
 
   // Helper to process a received result
   const handleResult = (data) => {
+    console.log('📊 handleResult called, status:', data?.status, 'summary:', data?.summary?.slice(0, 50));
     setAnalysisResult(data);
     if (data.code_snippets && data.code_snippets.length > 0) {
-      clearCells();
+      // Append new cells instead of replacing — preserves user-added cells
       addCells(data.code_snippets);
     }
   };
@@ -50,6 +51,7 @@ function App() {
     });
 
     const unsubResult = wsService.on('analysis:result', (data) => {
+      console.log('🔌 WS analysis:result received');
       handleResult(data);
     });
 
@@ -60,36 +62,42 @@ function App() {
     };
   }, [setSessionId, setAnalysisProgress, setAnalysisResult, addCells, clearCells]);
 
-  // Polling fallback: if analysis is running, periodically check the HTTP endpoint
-  // in case the WebSocket result event was missed during a reconnection
+  // Polling fallback: only kicks in after 30s as insurance if WS missed the result
   useEffect(() => {
     if (pollRef.current) {
-      clearInterval(pollRef.current);
+      clearTimeout(pollRef.current);
       pollRef.current = null;
     }
 
-    if (analysisTaskId && (analysisStatus === 'running' || analysisStatus === 'pending')) {
-      pollRef.current = setInterval(async () => {
-        try {
-          const result = await getAnalysisResult(analysisTaskId);
-          if (result && result.status === 'completed') {
-            handleResult(result);
-            clearInterval(pollRef.current);
-            pollRef.current = null;
+    if (analysisTaskId && analysisStatus !== 'completed' && analysisStatus !== 'failed') {
+      // Wait 30 seconds before starting to poll — give the WS time to deliver
+      pollRef.current = setTimeout(() => {
+        const intervalId = setInterval(async () => {
+          try {
+            const result = await getAnalysisResult(analysisTaskId);
+            if (result && result.status === 'completed') {
+              console.log('✅ Poll fallback found completed result');
+              handleResult(result);
+              clearInterval(intervalId);
+            }
+          } catch {
+            // Not ready yet — keep polling
           }
-        } catch {
-          // Task not done yet or HTTP error — keep polling
-        }
-      }, 5000); // Poll every 5 seconds
+        }, 15000); // Poll every 15 seconds (not 5)
+
+        // Store interval ID for cleanup
+        pollRef.current = intervalId;
+      }, 30000); // Wait 30s before first poll
     }
 
     return () => {
       if (pollRef.current) {
+        clearTimeout(pollRef.current);
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
     };
-  }, [analysisTaskId, analysisStatus]);
+  }, [analysisTaskId]);
 
   return (
     <div className="app" id="app-root">
